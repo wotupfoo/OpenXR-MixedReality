@@ -11,13 +11,15 @@
 
     <SharedPath>$(MSBuildThisFileDirectory)shared</SharedPath>
     <OpenXrSdkPath>$(MSBuildThisFileDirectory)openxr_preview</OpenXrSdkPath>
-
-    <ItemDefinitionGroup>
-      <ClCompile>
-        <TreatWarningAsError>true</TreatWarningAsError>
-        <ConformanceMode>true</ConformanceMode>
-      </ClCompile>
-    </ItemDefinitionGroup>
-
+    <VcpkgEnabled>false</VcpkgEnabled>
+    <VcpkgApplocalDeps>false</VcpkgApplocalDeps>
   </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PreprocessorDefinitions>_SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <TreatWarningAsError>true</TreatWarningAsError>
+      <ConformanceMode>true</ConformanceMode>
+    </ClCompile>
+  </ItemDefinitionGroup>
 </Project>
