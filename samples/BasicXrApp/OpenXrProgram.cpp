@@ -4,12 +4,24 @@
 #include "pch.h"
 #include "OpenXrProgram.h"
 #include "DxUtility.h"
+#include <cstdlib>
 
 namespace {
     struct ImplementOpenXrProgram : sample::IOpenXrProgram {
         ImplementOpenXrProgram(std::string applicationName, std::unique_ptr<sample::IGraphicsPluginD3D11> graphicsPlugin)
             : m_applicationName(std::move(applicationName))
             , m_graphicsPlugin(std::move(graphicsPlugin)) {
+            char spinCube[32]{};
+            const DWORD spinCubeLength = GetEnvironmentVariableA("BASICXRAPP_SPIN_CUBE", spinCube, static_cast<DWORD>(std::size(spinCube)));
+            if (spinCubeLength > 0) {
+                m_spinMainCube = true;
+
+                char* end{};
+                const float degreesPerSecond = std::strtof(spinCube, &end);
+                if (spinCubeLength < std::size(spinCube) && end != spinCube && degreesPerSecond > 0) {
+                    m_mainCubeSpinRadiansPerSecond = DirectX::XM_PI * degreesPerSecond / 180.0f;
+                }
+            }
         }
 
         void Run() override {
@@ -735,15 +747,22 @@ namespace {
                 InitializeSpinningCube(predictedDisplayTime);
             }
 
-            // Pause spinning cube animation when app loses 3D focus
-            if (IsSessionFocused()) {
-                auto convertToSeconds = [](XrDuration nanoSeconds) {
-                    using namespace std::chrono;
-                    return duration_cast<duration<float>>(duration<XrDuration, std::nano>(nanoSeconds)).count();
-                };
+            auto convertToSeconds = [](XrDuration nanoSeconds) {
+                using namespace std::chrono;
+                return duration_cast<duration<float>>(duration<XrDuration, std::nano>(nanoSeconds)).count();
+            };
 
-                const XrDuration duration = predictedDisplayTime - m_spinningCubeStartTime;
-                const float seconds = convertToSeconds(duration);
+            const XrDuration duration = predictedDisplayTime - m_spinningCubeStartTime;
+            const float seconds = convertToSeconds(duration);
+
+            if (m_spinMainCube) {
+                XrPosef pose = xr::math::Pose::Identity();
+                pose.orientation = xr::math::Quaternion::RotationAxisAngle({0, 1, 0}, m_mainCubeSpinRadiansPerSecond * seconds);
+                m_holograms[m_mainCubeIndex.value()].Cube.PoseInSpace = pose;
+            }
+
+            // Pause hand/controller-driven animation when app loses 3D focus.
+            if (IsSessionFocused()) {
                 const float angle = DirectX::XM_PIDIV2 * seconds; // Rotate 90 degrees per second
                 const float radius = 0.5f;                        // Rotation radius in meters
 
@@ -908,6 +927,8 @@ namespace {
         std::optional<uint32_t> m_mainCubeIndex;
         std::optional<uint32_t> m_spinningCubeIndex;
         XrTime m_spinningCubeStartTime;
+        bool m_spinMainCube{false};
+        float m_mainCubeSpinRadiansPerSecond{DirectX::XM_PI / 12.0f};
 
         constexpr static uint32_t LeftSide = 0;
         constexpr static uint32_t RightSide = 1;
